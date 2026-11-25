@@ -1,0 +1,8 @@
+{
+  "name": "Cultivar - Mockup",
+  "description": "Interactive seed-selection and strain comparison studio for amateur cannabis growers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
