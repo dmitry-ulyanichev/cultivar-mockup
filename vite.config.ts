@@ -6,6 +6,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Use relative asset paths on GitHub Actions so GitHub Pages works from any /<repo>/ subpath
+    base: process.env.GITHUB_ACTIONS ? './' : '/',
     plugins: [
       react(),
       tailwindcss(),
