@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
+  ArrowUpRight,
   Check,
   RotateCcw,
   Search,
   X,
 } from 'lucide-react';
 import {
-  EFFECT_CLOCK_ORDER,
+  ALL_EFFECT_KEYS,
   FLAVOR_COLORS,
   FLAVOR_ORDER,
   STRAINS,
@@ -27,6 +28,7 @@ interface ConversationalFinderProps {
   onClearReferenceStrain: () => void;
   onUpsertCriterion: (criterion: SelectionCriterion) => void;
   onRemoveCriterion: (type: TraitType) => void;
+  onOpenStrainProfile: (strainId: string) => void;
   onResetAll: () => void;
   isMobileLayout?: boolean;
 }
@@ -61,15 +63,15 @@ const TRAIT_OPTIONS: TraitOptionDef[] = [
   {
     type: 'flavor',
     label: 'Flavor',
-    subQuestion: 'Which flavor notes stand out most to you?',
+    subQuestion: 'Which flavor notes are most important to you?',
     subOptions: FLAVOR_ORDER,
     multiSelect: true,
   },
   {
     type: 'effects',
     label: 'Type of Effects',
-    subQuestion: 'What kind of effects are you looking for?',
-    subOptions: EFFECT_CLOCK_ORDER,
+    subQuestion: 'What type of effects are most important to you?',
+    subOptions: ALL_EFFECT_KEYS,
     multiSelect: true,
   },
   {
@@ -111,20 +113,52 @@ const TRAIT_OPTIONS: TraitOptionDef[] = [
   },
 ];
 
-/** Fast typewriter reveal that notifies when finished, respecting prefers-reduced-motion */
+/** Fast typewriter reveal that starts only once scrolled into view, respecting prefers-reduced-motion */
 const TypedPrompt: React.FC<{
   text: string;
   onComplete: (completedText: string) => void;
 }> = ({ text, onComplete }) => {
   const prefersReducedMotion = useReducedMotion();
+  const promptRef = useRef<HTMLParagraphElement>(null);
+  const [hasEnteredView, setHasEnteredView] = useState(
+    Boolean(prefersReducedMotion)
+  );
   const [displayed, setDisplayed] = useState(prefersReducedMotion ? text : '');
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
+    if (prefersReducedMotion || hasEnteredView) return;
+
+    const el = promptRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setHasEnteredView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setHasEnteredView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.8 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [prefersReducedMotion, hasEnteredView]);
+
+  useEffect(() => {
     if (prefersReducedMotion) {
       setDisplayed(text);
       onCompleteRef.current(text);
+      return;
+    }
+
+    if (!hasEnteredView) {
+      setDisplayed('');
       return;
     }
 
@@ -147,12 +181,15 @@ const TypedPrompt: React.FC<{
 
     const interval = window.setInterval(step, 18);
     return () => window.clearInterval(interval);
-  }, [text, prefersReducedMotion]);
+  }, [text, prefersReducedMotion, hasEnteredView]);
 
-  const isTyping = displayed.length < text.length;
+  const isTyping = hasEnteredView && displayed.length < text.length;
 
   return (
-    <p className="text-[15px] leading-relaxed text-[#F3F5F8] font-medium min-h-[24px]">
+    <p
+      ref={promptRef}
+      className="text-[15px] leading-relaxed text-[#F3F5F8] font-medium min-h-[24px]"
+    >
       {displayed}
       {isTyping && (
         <span
@@ -173,6 +210,7 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
   onClearReferenceStrain,
   onUpsertCriterion,
   onRemoveCriterion,
+  onOpenStrainProfile,
   onResetAll,
   isMobileLayout = false,
 }) => {
@@ -252,6 +290,9 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
   const activeSubDef = activeSubTrait
     ? TRAIT_OPTIONS.find((t) => t.type === activeSubTrait)
     : undefined;
+
+  const subPillStepDelay =
+    (activeSubDef?.subOptions?.length ?? 0) > 12 ? 0.02 : 0.036;
 
   const activeSubCriterion = activeSubTrait
     ? criteria.find((c) => c.type === activeSubTrait)
@@ -430,14 +471,14 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
     }
     if (criteria.length === 0) {
       return referenceStrain
-        ? `What did you like the most about ${referenceStrain.name} [${referenceStrain.breederCode}]?`
+        ? `What did you like the most about ${referenceStrain.name} (${referenceStrain.breederCode})?`
         : 'What is the most important thing you look for in a strain?';
     }
     if (remainingTraits.length === 0) {
       return 'You have added every available characteristic. Click any match on the right to compare, or edit your picks above.';
     }
     return referenceStrain
-      ? `What else did you like about ${referenceStrain.name} [${referenceStrain.breederCode}]?`
+      ? `What else did you like about ${referenceStrain.name} (${referenceStrain.breederCode})?`
       : 'What else is important to you in a strain?';
   }, [
     step1Done,
@@ -445,6 +486,89 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
     criteria.length,
     referenceStrain,
     remainingTraits.length,
+  ]);
+
+  useEffect(() => {
+    setCompletedQuestion(null);
+  }, [currentQuestion]);
+
+  // On mobile, smoothly scroll newly revealed options, messages, and buttons into view
+  useEffect(() => {
+    if (!isMobileLayout) return;
+    const optionsVisible =
+      Boolean(prefersReducedMotion) || completedQuestion === currentQuestion;
+    if (!optionsVisible) return;
+
+    const findScrollContainer = (el: HTMLElement): HTMLElement | null => {
+      let parent = el.parentElement;
+      while (parent && parent !== document.body) {
+        const overflowY = window.getComputedStyle(parent).overflowY;
+        if (
+          (overflowY === 'auto' || overflowY === 'scroll') &&
+          parent.scrollHeight > parent.clientHeight + 2
+        ) {
+          return parent;
+        }
+        parent = parent.parentElement;
+      }
+      return null;
+    };
+
+    const ensureOptionsInView = () => {
+      const finderEl = finderContainerRef.current;
+      if (!finderEl) return;
+
+      const finderRect = finderEl.getBoundingClientRect();
+      if (finderRect.height === 0) return;
+
+      const scrollBehavior: ScrollBehavior = prefersReducedMotion
+        ? 'auto'
+        : 'smooth';
+      const scrollContainer = findScrollContainer(finderEl);
+
+      if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        // Only auto-scroll if the finder is already partially in view
+        if (finderRect.top >= containerRect.bottom - 20) return;
+
+        const targetBottom = containerRect.bottom - 16;
+        const overflowPx = finderRect.bottom - targetBottom;
+        if (overflowPx > 4) {
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollTop + overflowPx,
+            behavior: scrollBehavior,
+          });
+        }
+      } else {
+        const visibleBottom = window.innerHeight - 76;
+        if (finderRect.top >= visibleBottom - 20) return;
+
+        const overflowPx = finderRect.bottom - visibleBottom;
+        if (overflowPx > 4) {
+          window.scrollTo({
+            top: window.scrollY + overflowPx,
+            behavior: scrollBehavior,
+          });
+        }
+      }
+    };
+
+    const rafId = window.requestAnimationFrame(ensureOptionsInView);
+    // Re-check after any 180ms summary row expansion finishes
+    const timerId = window.setTimeout(ensureOptionsInView, 220);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
+    };
+  }, [
+    isMobileLayout,
+    prefersReducedMotion,
+    completedQuestion,
+    currentQuestion,
+    activeSubTrait,
+    criteria.length,
+    step1Done,
   ]);
 
   const hasAnyInput = step1Done || criteria.length > 0;
@@ -462,7 +586,7 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
       >
         <div className="min-w-0">
           <h1 className="font-display text-lg sm:text-xl font-semibold text-[#F3F5F8] tracking-tight">
-            Find Your Next Perfect Grow
+            Find Your Next Perfect Smoke
           </h1>
           {!hasAnyInput && (
             <p className="text-xs sm:text-[13px] leading-relaxed text-[#969FA9] mt-1">
@@ -513,14 +637,20 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                     </span>
                     <div className="text-xs mt-0.5 leading-snug">
                       {referenceStrain ? (
-                        <>
-                          <span className="font-medium text-emerald-300">
+                        <button
+                          type="button"
+                          onClick={() => onOpenStrainProfile(referenceStrain.id)}
+                          title={`View full profile for ${referenceStrain.name}`}
+                          className="group inline-flex items-baseline gap-1 text-left max-w-full rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
+                        >
+                          <span className="font-medium text-emerald-300 underline decoration-emerald-300/45 underline-offset-2 group-hover:text-emerald-200 group-hover:decoration-emerald-200 transition-colors">
                             {referenceStrain.name}
-                          </span>{' '}
-                          <span className="font-mono text-[11px] text-[#8B95A1]">
-                            [{referenceStrain.breederCode}]
                           </span>
-                        </>
+                          <span className="font-mono text-[11px] text-[#8B95A1] group-hover:text-[#B8C0CA] transition-colors shrink-0">
+                            ({referenceStrain.breederCode})
+                          </span>
+                          <ArrowUpRight className="w-3 h-3 self-center text-emerald-300/75 group-hover:text-emerald-200 transition-colors shrink-0" />
+                        </button>
                       ) : (
                         <span className="text-[#8B95A1]">Not selected</span>
                       )}
@@ -732,9 +862,21 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                   {dropdownOpen && (
                     <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl bg-[#181C22] border border-white/12 shadow-2xl overflow-hidden max-h-64 overflow-y-auto studio-scroll">
                       {suggestions.length === 0 ? (
-                        <div className="px-4 py-3 text-xs text-[#969FA9]">
-                          No strains match “{searchQuery}”. Try another name or
-                          click “Skip”.
+                        <div className="px-4 py-3 text-xs text-[#969FA9] leading-relaxed">
+                          No strains match “{searchQuery}”. Try another name or{' '}
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setSearchQuery('');
+                              setDropdownOpen(false);
+                              onSkipReferenceStrain();
+                            }}
+                            className="font-medium text-emerald-300 hover:text-emerald-200 underline underline-offset-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400 rounded"
+                          >
+                            skip
+                          </button>
+                          .
                         </div>
                       ) : (
                         <ul role="listbox">
@@ -766,7 +908,7 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                                   </span>
                                 </div>
                                 <span className="font-mono text-xs text-[#7D8793] shrink-0">
-                                  [{strain.breederCode}]
+                                  ({strain.breederCode})
                                 </span>
                               </button>
                             </li>
@@ -832,7 +974,9 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{
                           duration: 0.16,
-                          delay: prefersReducedMotion ? 0 : idx * 0.036,
+                          delay: prefersReducedMotion
+                            ? 0
+                            : idx * subPillStepDelay,
                           ease: [0.16, 1, 0.3, 1],
                         }}
                         onClick={(e) =>
@@ -853,7 +997,9 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                           />
                         )}
                         <span>{val}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        {isSelected && (
+                          <Check className="w-3.5 h-3.5 shrink-0" />
+                        )}
                       </motion.button>
                     );
                   })}
@@ -869,13 +1015,15 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                       duration: 0.18,
                       delay: prefersReducedMotion
                         ? 0
-                        : activeSubDef.subOptions.length * 0.036 + 0.05,
+                        : activeSubDef.subOptions.length * subPillStepDelay +
+                          0.05,
                       ease: [0.16, 1, 0.3, 1],
                     }}
                     className="flex items-center justify-between gap-2 pt-1"
                   >
                     <span className="text-xs text-[#858F9B]">
-                      Select up to 3 notes · charts update immediately
+                      Select up to 3{' '}
+                      {activeSubDef.type === 'effects' ? 'effects' : 'flavors'}
                     </span>
                     <button
                       type="button"
@@ -886,7 +1034,9 @@ export const ConversationalFinder: React.FC<ConversationalFinderProps> = ({
                     >
                       {(activeSubCriterion?.subValues.length ?? 0) > 0
                         ? 'Continue'
-                        : 'Any note works'}
+                        : activeSubDef.type === 'effects'
+                          ? 'Any effect works'
+                          : 'Any flavor works'}
                     </button>
                   </motion.div>
                 )}

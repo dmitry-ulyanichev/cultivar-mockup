@@ -220,7 +220,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                         {strain.name}
                       </span>
                       <span className="font-mono text-[11px] text-[#7D8793] shrink-0">
-                        [{strain.breederCode}]
+                        ({strain.breederCode})
                       </span>
                     </div>
                     <div
@@ -258,7 +258,9 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                         {strain.easeOfGrowing.easy}% easy
                       </span>
                       <span className="hidden md:block text-right font-mono text-xs tabular-nums text-[#D8DEE6]">
-                        {strain.yieldIndoorGm2.median} g/m²
+                        {strain.seedType === 'Autoflower'
+                          ? `${strain.yieldOutdoorGPlant.average ?? strain.yieldOutdoorGPlant.median} g/plant`
+                          : `${strain.yieldIndoorGm2.median} g/m²`}
                       </span>
                       <span className="font-mono text-xs tabular-nums text-[#F3F5F8] text-right shrink-0">
                         {strain.rating.toFixed(1)} / 5

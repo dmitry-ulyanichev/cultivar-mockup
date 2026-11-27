@@ -7,46 +7,95 @@ export type GeneticsType = 'Indica-dominant' | 'Hybrid' | 'Sativa-dominant';
 export type OdorLevel = 'Low' | 'Medium' | 'High';
 
 export type FlavorKey =
-  | 'Earthy'
-  | 'Citrus'
-  | 'Herbs'
-  | 'Pine'
-  | 'Woody'
-  | 'Fruity'
-  | 'Flowery'
   | 'Berries'
+  | 'Caramel'
+  | 'Cheese'
+  | 'Chocolate'
+  | 'Citrus'
+  | 'Cream'
+  | 'Diesel'
+  | 'Earthy'
+  | 'Flowery'
+  | 'Fruity'
+  | 'Herbs'
+  | 'Mint'
+  | 'Nutty'
+  | 'Pine'
+  | 'Pungent'
+  | 'Sour'
   | 'Sweet'
-  | 'Diesel';
+  | 'Tropical'
+  | 'Woody';
+
+export type ChartFlavorKey = FlavorKey | 'Other';
+
+export interface ChartFlavorItem {
+  flavor: ChartFlavorKey;
+  percent: number;
+  exactPercent: number;
+  otherBreakdown?: Array<{ flavor: FlavorKey; percent: number }>;
+}
 
 /**
- * 10 effects arranged clockwise on a 12-hour dial:
- * 12:00 Energetic -> 1:12 Uplifted -> 2:24 Focused -> 3:36 Giggly -> 4:48 Hungry
- * -> 6:00 Sleepy -> 7:12 Relaxed -> 8:24 Happy -> 9:36 Euphoric -> 10:48 Creative
+ * 8 primary effects arranged clockwise on an octagonal dial:
+ * 12:00 Energetic -> 1:30 Uplifted -> 3:00 Creative -> 4:30 Hungry
+ * -> 6:00 Sleepy -> 7:30 Relaxed -> 9:00 Happy -> 10:30 Euphoric
  */
-export type EffectKey =
+export type PrimaryEffectKey =
   | 'Energetic'
   | 'Uplifted'
-  | 'Focused'
-  | 'Giggly'
+  | 'Creative'
   | 'Hungry'
   | 'Sleepy'
   | 'Relaxed'
   | 'Happy'
-  | 'Euphoric'
-  | 'Creative';
+  | 'Euphoric';
+
+/** Additional effects surfaced beneath the dial as "Smokers also mention" */
+export type SecondaryEffectKey = 'Giggly' | 'Talkative';
+
+export type EffectKey = PrimaryEffectKey | SecondaryEffectKey;
+
+export interface DistributionBucket {
+  /** Point value (e.g. week 10) or interval start when `end` is provided (e.g. 60 for 60–80 cm) */
+  value: number;
+  /** Optional interval upper bound for binned continuous data (e.g. 80 for 60–80 cm) */
+  end?: number;
+  count: number;
+}
 
 export interface DistributionRange {
   min: number;
   typicalLow: number;
   median: number;
+  /** Arithmetic mean; falls back to median when omitted */
+  average?: number;
   typicalHigh: number;
   max: number;
+  /** Optional empirical bucket counts (e.g. grower diary counts per week) */
+  buckets?: DistributionBucket[];
+  /** Optional exact continuous measurements (e.g. cm, g/plant) for bin-free distribution ridges */
+  rawValues?: number[];
 }
 
 export interface EaseBreakdown {
   easy: number;
   medium: number;
   hard: number;
+}
+
+export interface SmellBreakdown {
+  /** Counts or percentages for flowering-stage smell intensity */
+  none: number;
+  weak: number;
+  medium: number;
+  strong: number;
+}
+
+export interface SativaIndicaVote {
+  /** 0 = 100% Sativa, 50 = 50/50 Balanced, 100 = 100% Indica */
+  indicaPercent: number;
+  count: number;
 }
 
 export interface Strain {
@@ -57,14 +106,18 @@ export interface Strain {
   geneticsType: GeneticsType;
   /** 0 = pure indica, 100 = pure sativa */
   sativaRatio: number;
+  /** Optional empirical Sativa–Indica balance votes from smoke reports */
+  sativaIndicaVotes?: SativaIndicaVote[];
   seedType: SeedType;
   rating: number;
   reviewTier: ReviewTier;
   popularityViews: number;
   trendingScore: number;
   odorLevel: OdorLevel;
+  /** Optional empirical grower breakdown of smell level during flowering */
+  smellDuringFlowering?: SmellBreakdown;
   flavorProfile: Partial<Record<FlavorKey, number>>;
-  effectsProfile: Record<EffectKey, number>;
+  effectsProfile: Partial<Record<EffectKey, number>>;
   easeOfGrowing: EaseBreakdown;
   /** Seed-to-harvest total weeks for autos; flowering weeks for photos */
   durationWeeks: DistributionRange;

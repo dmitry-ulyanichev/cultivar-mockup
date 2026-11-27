@@ -1,8 +1,14 @@
 import React from 'react';
 import { SelectionCriterion, Strain } from '../types/strain';
+import { getEffectRadarScaleMax } from '../utils/matching';
 import { EffectsRadarChart } from './charts/EffectsRadarChart';
 import { FlavorPieComparison } from './charts/FlavorPieChart';
-import { DensityRangeBar, EaseStackedBar } from './charts/GrowMetricCharts';
+import {
+  DensityRangeBar,
+  DensityRangeLegend,
+  EaseStackedBar,
+  getAdaptiveRangeScale,
+} from './charts/GrowMetricCharts';
 
 interface ComparisonChartStackProps {
   referenceStrain?: Strain;
@@ -16,7 +22,7 @@ interface ComparisonChartStackProps {
  * - Matching strain always on the LEFT, Reference strain on the RIGHT (side-by-side on desktop).
  * - Without reference strain: Matching strain chart only.
  * - Flavor pairs share a single unified color-coded flavor list on the left.
- * - Every side-by-side pair clearly distinguishes "Match" vs "Your reference".
+ * - Every side-by-side pair clearly distinguishes "Match" vs "Your pick".
  */
 export const ComparisonChartStack: React.FC<ComparisonChartStackProps> = ({
   referenceStrain,
@@ -56,7 +62,7 @@ export const ComparisonChartStack: React.FC<ComparisonChartStackProps> = ({
 };
 
 const SideLabel: React.FC<{
-  role: 'Match' | 'Your reference';
+  role: 'Match' | 'Your pick';
   strain: Strain;
   align?: 'left' | 'center';
 }> = ({ role, strain, align = 'left' }) => (
@@ -71,7 +77,7 @@ const SideLabel: React.FC<{
       {role}
     </span>
     <span className="text-xs text-[#C6CDD6] block truncate">
-      {strain.name} [{strain.breederCode}]
+      {strain.name} ({strain.breederCode})
     </span>
   </div>
 );
@@ -95,7 +101,10 @@ function renderCriterionChart(
         />
       );
 
-    case 'effects':
+    case 'effects': {
+      const sharedScaleMax = getEffectRadarScaleMax(
+        referenceStrain ? [matchedStrain, referenceStrain] : [matchedStrain]
+      );
       return (
         <div className={pairGridClass}>
           <div className="flex flex-col items-center">
@@ -111,6 +120,7 @@ function renderCriterionChart(
               highlightedEffects={criterion.subValues}
               accentColor="#34D399"
               compact={isMobileLayout || Boolean(referenceStrain)}
+              scaleMax={sharedScaleMax}
               minimal
             />
           </div>
@@ -118,7 +128,7 @@ function renderCriterionChart(
           {referenceStrain && (
             <div className={`${rightColClass} flex flex-col items-center`}>
               <SideLabel
-                role="Your reference"
+                role="Your pick"
                 strain={referenceStrain}
                 align={isMobileLayout ? 'left' : 'center'}
               />
@@ -127,12 +137,14 @@ function renderCriterionChart(
                 highlightedEffects={criterion.subValues}
                 accentColor="#60A5FA"
                 compact={isMobileLayout || Boolean(referenceStrain)}
+                scaleMax={sharedScaleMax}
                 minimal
               />
             </div>
           )}
         </div>
       );
+    }
 
     case 'ease':
       return (
@@ -146,142 +158,189 @@ function renderCriterionChart(
 
           {referenceStrain && (
             <div className={rightColClass}>
-              <SideLabel role="Your reference" strain={referenceStrain} />
+              <SideLabel role="Your pick" strain={referenceStrain} />
               <EaseStackedBar ease={referenceStrain.easeOfGrowing} />
             </div>
           )}
         </div>
       );
 
-    case 'duration':
+    case 'duration': {
+      const durationScale = getAdaptiveRangeScale(
+        referenceStrain
+          ? [matchedStrain.durationWeeks, referenceStrain.durationWeeks]
+          : [matchedStrain.durationWeeks],
+        'weeks'
+      );
       return (
-        <div className={pairGridClass}>
-          <div>
-            {referenceStrain && (
-              <SideLabel role="Match" strain={matchedStrain} />
-            )}
-            <DensityRangeBar
-              range={matchedStrain.durationWeeks}
-              scaleMin={5}
-              scaleMax={15}
-              unit="wks"
-              sublabel={
-                matchedStrain.seedType === 'Autoflower'
-                  ? 'Seed-to-harvest'
-                  : 'Flowering'
-              }
-              accentHex="#34D399"
-              ticks={[5, 7, 9, 11, 13, 15]}
-            />
-          </div>
-
-          {referenceStrain && (
-            <div className={rightColClass}>
-              <SideLabel role="Your reference" strain={referenceStrain} />
+        <div className="flex flex-col gap-3">
+          <div className={pairGridClass}>
+            <div>
+              {referenceStrain && (
+                <SideLabel role="Match" strain={matchedStrain} />
+              )}
               <DensityRangeBar
-                range={referenceStrain.durationWeeks}
-                scaleMin={5}
-                scaleMax={15}
+                range={matchedStrain.durationWeeks}
+                scaleMin={durationScale.scaleMin}
+                scaleMax={durationScale.scaleMax}
                 unit="wks"
                 sublabel={
-                  referenceStrain.seedType === 'Autoflower'
+                  matchedStrain.seedType === 'Autoflower'
                     ? 'Seed-to-harvest'
                     : 'Flowering'
                 }
-                accentHex="#60A5FA"
-                ticks={[5, 7, 9, 11, 13, 15]}
+                accentHex="#34D399"
+                ticks={durationScale.ticks}
               />
             </div>
-          )}
-        </div>
-      );
 
-    case 'yield': {
-      const outdoor = criterion.subValues[0] === 'Outdoor (g/plant)';
-      const scaleMin = outdoor ? 0 : 150;
-      const scaleMax = outdoor ? 2400 : 850;
-      const unit = outdoor ? 'g/plant' : 'g/m²';
-      const ticks = outdoor
-        ? [0, 600, 1200, 1800, 2400]
-        : [150, 325, 500, 675, 850];
-
-      return (
-        <div className={pairGridClass}>
-          <div>
             {referenceStrain && (
-              <SideLabel role="Match" strain={matchedStrain} />
+              <div className={rightColClass}>
+                <SideLabel role="Your pick" strain={referenceStrain} />
+                <DensityRangeBar
+                  range={referenceStrain.durationWeeks}
+                  scaleMin={durationScale.scaleMin}
+                  scaleMax={durationScale.scaleMax}
+                  unit="wks"
+                  sublabel={
+                    referenceStrain.seedType === 'Autoflower'
+                      ? 'Seed-to-harvest'
+                      : 'Flowering'
+                  }
+                  accentHex="#60A5FA"
+                  ticks={durationScale.ticks}
+                />
+              </div>
             )}
-            <DensityRangeBar
-              range={
-                outdoor
-                  ? matchedStrain.yieldOutdoorGPlant
-                  : matchedStrain.yieldIndoorGm2
-              }
-              scaleMin={scaleMin}
-              scaleMax={scaleMax}
-              unit={unit}
-              sublabel={outdoor ? 'Outdoor yield' : 'Indoor yield'}
-              accentHex="#34D399"
-              ticks={ticks}
-            />
           </div>
-
-          {referenceStrain && (
-            <div className={rightColClass}>
-              <SideLabel role="Your reference" strain={referenceStrain} />
-              <DensityRangeBar
-                range={
-                  outdoor
-                    ? referenceStrain.yieldOutdoorGPlant
-                    : referenceStrain.yieldIndoorGm2
-                }
-                scaleMin={scaleMin}
-                scaleMax={scaleMax}
-                unit={unit}
-                sublabel={outdoor ? 'Outdoor yield' : 'Indoor yield'}
-                accentHex="#60A5FA"
-                ticks={ticks}
-              />
-            </div>
-          )}
+          <DensityRangeLegend />
         </div>
       );
     }
 
-    case 'height':
-      return (
-        <div className={pairGridClass}>
-          <div>
-            {referenceStrain && (
-              <SideLabel role="Match" strain={matchedStrain} />
-            )}
-            <DensityRangeBar
-              range={matchedStrain.heightCm}
-              scaleMin={35}
-              scaleMax={215}
-              unit="cm"
-              sublabel="Plant height"
-              accentHex="#34D399"
-              ticks={[40, 80, 120, 160, 200]}
-            />
-          </div>
+    case 'yield': {
+      const outdoor = criterion.subValues[0] === 'Outdoor (g/plant)';
+      const matchedUsesPerPlant =
+        outdoor || matchedStrain.seedType === 'Autoflower';
+      const refUsesPerPlant = referenceStrain
+        ? outdoor || referenceStrain.seedType === 'Autoflower'
+        : false;
 
-          {referenceStrain && (
-            <div className={rightColClass}>
-              <SideLabel role="Your reference" strain={referenceStrain} />
+      const matchedRange = matchedUsesPerPlant
+        ? matchedStrain.yieldOutdoorGPlant
+        : matchedStrain.yieldIndoorGm2;
+      const refRange = referenceStrain
+        ? refUsesPerPlant
+          ? referenceStrain.yieldOutdoorGPlant
+          : referenceStrain.yieldIndoorGm2
+        : undefined;
+
+      const sameUnit = !referenceStrain || matchedUsesPerPlant === refUsesPerPlant;
+      const matchedScale = getAdaptiveRangeScale(
+        sameUnit && refRange ? [matchedRange, refRange] : [matchedRange],
+        matchedUsesPerPlant ? 'gplant' : 'gm2'
+      );
+      const refScale = refRange
+        ? sameUnit
+          ? matchedScale
+          : getAdaptiveRangeScale([refRange], refUsesPerPlant ? 'gplant' : 'gm2')
+        : undefined;
+
+      const matchedSublabel =
+        matchedStrain.seedType === 'Autoflower'
+          ? 'Yield per plant'
+          : outdoor
+            ? 'Outdoor yield'
+            : 'Indoor yield';
+      const refSublabel =
+        referenceStrain?.seedType === 'Autoflower'
+          ? 'Yield per plant'
+          : outdoor
+            ? 'Outdoor yield'
+            : 'Indoor yield';
+
+      return (
+        <div className="flex flex-col gap-3">
+          <div className={pairGridClass}>
+            <div>
+              {referenceStrain && (
+                <SideLabel role="Match" strain={matchedStrain} />
+              )}
               <DensityRangeBar
-                range={referenceStrain.heightCm}
-                scaleMin={35}
-                scaleMax={215}
-                unit="cm"
-                sublabel="Plant height"
-                accentHex="#60A5FA"
-                ticks={[40, 80, 120, 160, 200]}
+                range={matchedRange}
+                scaleMin={matchedScale.scaleMin}
+                scaleMax={matchedScale.scaleMax}
+                unit={matchedUsesPerPlant ? 'g/plant' : 'g/m²'}
+                sublabel={matchedSublabel}
+                accentHex="#34D399"
+                ticks={matchedScale.ticks}
               />
             </div>
-          )}
+
+            {referenceStrain && refRange && refScale && (
+              <div className={rightColClass}>
+                <SideLabel role="Your pick" strain={referenceStrain} />
+                <DensityRangeBar
+                  range={refRange}
+                  scaleMin={refScale.scaleMin}
+                  scaleMax={refScale.scaleMax}
+                  unit={refUsesPerPlant ? 'g/plant' : 'g/m²'}
+                  sublabel={refSublabel}
+                  accentHex="#60A5FA"
+                  ticks={refScale.ticks}
+                />
+              </div>
+            )}
+          </div>
+          <DensityRangeLegend />
         </div>
       );
+    }
+
+    case 'height': {
+      const heightScale = getAdaptiveRangeScale(
+        referenceStrain
+          ? [matchedStrain.heightCm, referenceStrain.heightCm]
+          : [matchedStrain.heightCm],
+        'cm'
+      );
+      return (
+        <div className="flex flex-col gap-3">
+          <div className={pairGridClass}>
+            <div>
+              {referenceStrain && (
+                <SideLabel role="Match" strain={matchedStrain} />
+              )}
+              <DensityRangeBar
+                range={matchedStrain.heightCm}
+                scaleMin={heightScale.scaleMin}
+                scaleMax={heightScale.scaleMax}
+                unit="cm"
+                sublabel="Plant height"
+                accentHex="#34D399"
+                ticks={heightScale.ticks}
+              />
+            </div>
+
+            {referenceStrain && (
+              <div className={rightColClass}>
+                <SideLabel role="Your pick" strain={referenceStrain} />
+                <DensityRangeBar
+                  range={referenceStrain.heightCm}
+                  scaleMin={heightScale.scaleMin}
+                  scaleMax={heightScale.scaleMax}
+                  unit="cm"
+                  sublabel="Plant height"
+                  accentHex="#60A5FA"
+                  ticks={heightScale.ticks}
+                />
+              </div>
+            )}
+          </div>
+          <DensityRangeLegend />
+        </div>
+      );
+    }
 
     case 'autoflower':
     case 'low-odor':
@@ -312,7 +371,7 @@ function renderCriterionChart(
 
           {referenceStrain && (
             <div className={`${rightColClass} flex flex-col gap-1`}>
-              <SideLabel role="Your reference" strain={referenceStrain} />
+              <SideLabel role="Your pick" strain={referenceStrain} />
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 <span className="text-[#C6CDD6]">
                   {referenceStrain.seedType}

@@ -3,7 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ArrowLeft,
   BarChart3,
@@ -41,9 +47,12 @@ export default function App() {
   const [referenceSkipped, setReferenceSkipped] = useState(false);
   const [criteria, setCriteria] = useState<SelectionCriterion[]>([]);
   const [comparedMatchId, setComparedMatchId] = useState<string | null>(null);
+  const [finderResetKey, setFinderResetKey] = useState(0);
 
   const finderSectionRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const pendingFinderScrollRef = useRef<ScrollBehavior | null>(null);
+  const followFinderGrowthUntilRef = useRef<number>(0);
 
   useEffect(() => {
     const checkViewport = () => {
@@ -80,6 +89,71 @@ export default function App() {
     }
   }, [rankedMatches, comparedMatchId]);
 
+  const scrollToFinderNow = (behavior: ScrollBehavior = 'smooth') => {
+    const finderEl = finderSectionRef.current;
+    if (!finderEl) return;
+
+    const scrollContainer = mobileScrollRef.current;
+    if (
+      isMobileUI &&
+      scrollContainer &&
+      scrollContainer.scrollHeight > scrollContainer.clientHeight + 4
+    ) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const targetRect = finderEl.getBoundingClientRect();
+      const topAligned =
+        scrollContainer.scrollTop + (targetRect.top - containerRect.top) - 12;
+      const bottomAligned =
+        topAligned + targetRect.height + 28 - scrollContainer.clientHeight;
+      const finalTop = Math.max(0, Math.max(topAligned, bottomAligned));
+      scrollContainer.scrollTo({ top: finalTop, behavior });
+      return;
+    }
+
+    if (isNativeMobile) {
+      const targetRect = finderEl.getBoundingClientRect();
+      const headerOffset = 64;
+      const bottomBarOffset = 72;
+      const topAligned = window.scrollY + targetRect.top - headerOffset;
+      const visibleHeight = window.innerHeight - headerOffset - bottomBarOffset;
+      const bottomAligned = topAligned + targetRect.height + 16 - visibleHeight;
+      const finalTop = Math.max(0, Math.max(topAligned, bottomAligned));
+      window.scrollTo({ top: finalTop, behavior });
+      return;
+    }
+
+    finderEl.scrollIntoView({ behavior, block: 'start' });
+  };
+
+  useLayoutEffect(() => {
+    const behavior = pendingFinderScrollRef.current;
+    if (!behavior) return;
+    if (activeView.type !== 'home') return;
+    if (isMobileUI && mobileTab !== 'finder') return;
+
+    pendingFinderScrollRef.current = null;
+    followFinderGrowthUntilRef.current = Date.now() + 900;
+    scrollToFinderNow(behavior);
+  }, [activeView.type, mobileTab, isMobileUI]);
+
+  // If the finder expands shortly after navigating to it (e.g. pills appearing after typing), keep all pills in view
+  useEffect(() => {
+    if (activeView.type !== 'home') return;
+    if (isMobileUI && mobileTab !== 'finder') return;
+
+    const finderEl = finderSectionRef.current;
+    if (!finderEl || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      if (Date.now() <= followFinderGrowthUntilRef.current) {
+        scrollToFinderNow('smooth');
+      }
+    });
+
+    observer.observe(finderEl);
+    return () => observer.disconnect();
+  }, [activeView.type, mobileTab, isMobileUI]);
+
   const scrollToTop = () => {
     if (previewMode === 'mobile' && !isNativeMobile && mobileScrollRef.current) {
       mobileScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -112,19 +186,10 @@ export default function App() {
     scrollToTop();
   };
 
-  const handleExploreInFinder = (strainId: string) => {
-    setReferenceStrainId(strainId);
-    setReferenceSkipped(false);
-    setCriteria([]);
-    setComparedMatchId(null);
+  const handleExploreInFinder = () => {
+    pendingFinderScrollRef.current = 'smooth';
     setActiveView({ type: 'home' });
     setMobileTab('finder');
-    window.setTimeout(() => {
-      finderSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 80);
   };
 
   // Finder state mutations
@@ -170,70 +235,11 @@ export default function App() {
     setReferenceSkipped(false);
     setCriteria([]);
     setComparedMatchId(null);
+    setFinderResetKey((k) => k + 1);
     setActiveView({ type: 'home' });
     setMobileTab('finder');
   };
 
-  const handleLoadPreset = (
-    preset: 'afghan-flavor' | 'beginner-auto' | 'citrus-day'
-  ) => {
-    if (preset === 'afghan-flavor') {
-      setReferenceStrainId('afghan-kush-auto-fb');
-      setReferenceSkipped(false);
-      setCriteria([
-        {
-          id: 'flavor',
-          type: 'flavor',
-          label: 'Flavor',
-          subValues: ['Earthy'],
-        },
-        {
-          id: 'effects',
-          type: 'effects',
-          label: 'Type of Effects',
-          subValues: ['Relaxed', 'Sleepy'],
-        },
-      ]);
-      setComparedMatchId(null);
-    } else if (preset === 'citrus-day') {
-      setReferenceStrainId(null);
-      setReferenceSkipped(true);
-      setCriteria([
-        {
-          id: 'flavor',
-          type: 'flavor',
-          label: 'Flavor',
-          subValues: ['Citrus'],
-        },
-        {
-          id: 'effects',
-          type: 'effects',
-          label: 'Type of Effects',
-          subValues: ['Energetic', 'Creative'],
-        },
-      ]);
-      setComparedMatchId(null);
-    } else {
-      setReferenceStrainId(null);
-      setReferenceSkipped(true);
-      setCriteria([
-        { id: 'ease', type: 'ease', label: 'Easy Growing', subValues: [] },
-        {
-          id: 'duration',
-          type: 'duration',
-          label: 'Fast Growing',
-          subValues: ['Express (<9 wks)'],
-        },
-        {
-          id: 'height',
-          type: 'height',
-          label: 'Compact Height',
-          subValues: ['Stealth / Micro (<80 cm)'],
-        },
-      ]);
-      setComparedMatchId(null);
-    }
-  };
 
   const activeStrainDetail =
     activeView.type === 'strain'
@@ -301,8 +307,12 @@ export default function App() {
         ref={mobileScrollRef}
         className="flex-1 overflow-y-auto studio-scroll px-4 py-4 pb-6"
       >
-        {activeView.type === 'home' && mobileTab === 'finder' && (
-          <div className="flex flex-col gap-5">
+        {activeView.type === 'home' && (
+          <div
+            className={
+              mobileTab === 'finder' ? 'flex flex-col gap-5' : 'hidden'
+            }
+          >
             <PopularCarousel
               onSelectStrain={handleOpenStrain}
               onViewMoreCategory={(id) => handleOpenCategory(id)}
@@ -311,6 +321,7 @@ export default function App() {
 
             <div ref={finderSectionRef}>
               <ConversationalFinder
+                key={finderResetKey}
                 referenceStrain={referenceStrain}
                 referenceSkipped={referenceSkipped}
                 criteria={criteria}
@@ -319,6 +330,7 @@ export default function App() {
                 onClearReferenceStrain={handleClearReferenceStrain}
                 onUpsertCriterion={handleUpsertCriterion}
                 onRemoveCriterion={handleRemoveCriterion}
+                onOpenStrainProfile={handleOpenStrain}
                 onResetAll={handleResetFinder}
                 isMobileLayout
               />
@@ -335,7 +347,6 @@ export default function App() {
             onSelectComparedMatch={setComparedMatchId}
             onOpenStrainProfile={handleOpenStrain}
             onRemoveCriterion={handleRemoveCriterion}
-            onLoadPreset={handleLoadPreset}
             isMobileLayout
           />
         )}
@@ -388,8 +399,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
+                  pendingFinderScrollRef.current = 'auto';
                   setMobileTab('finder');
-                  scrollToTop();
                 }}
                 className="w-full h-[44px] px-4 rounded-xl bg-[#1C2026] hover:bg-[#252B34] border border-white/15 text-[#F3F5F8] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.99] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
               >
@@ -555,6 +566,7 @@ export default function App() {
                         onClearReferenceStrain={handleClearReferenceStrain}
                         onUpsertCriterion={handleUpsertCriterion}
                         onRemoveCriterion={handleRemoveCriterion}
+                        onOpenStrainProfile={handleOpenStrain}
                         onResetAll={handleResetFinder}
                       />
                     </div>
@@ -568,7 +580,6 @@ export default function App() {
                       onSelectComparedMatch={setComparedMatchId}
                       onOpenStrainProfile={handleOpenStrain}
                       onRemoveCriterion={handleRemoveCriterion}
-                      onLoadPreset={handleLoadPreset}
                     />
                   </div>
                 </section>

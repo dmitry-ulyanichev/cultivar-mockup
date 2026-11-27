@@ -1,8 +1,11 @@
 import {
+  ALL_EFFECT_KEYS,
   EFFECT_CLOCK_ORDER,
   FLAVOR_ORDER,
+  SECONDARY_EFFECT_KEYS,
 } from '../data/strains';
 import {
+  ChartFlavorItem,
   ComparisonNote,
   EffectKey,
   FlavorKey,
@@ -31,7 +34,7 @@ function flavorVector(strain: Strain): number[] {
 }
 
 function effectVector(strain: Strain): number[] {
-  return EFFECT_CLOCK_ORDER.map((k) => strain.effectsProfile[k] ?? 0);
+  return ALL_EFFECT_KEYS.map((k) => strain.effectsProfile[k] ?? 0);
 }
 
 /** Overall intrinsic similarity between two strains (0..1) */
@@ -68,11 +71,19 @@ function scoreCriterion(
   switch (criterion.type) {
     case 'flavor': {
       if (criterion.subValues.length > 0) {
-        const chosenSum = criterion.subValues.reduce((acc, f) => {
-          return acc + (candidate.flavorProfile[f as FlavorKey] ?? 0);
+        const totalFlavor =
+          Object.values(candidate.flavorProfile).reduce(
+            (acc, val) => acc + (val ?? 0),
+            0
+          ) || 100;
+        const chosenPercent = criterion.subValues.reduce((acc, f) => {
+          return (
+            acc +
+            ((candidate.flavorProfile[f as FlavorKey] ?? 0) / totalFlavor) * 100
+          );
         }, 0);
         // Normalize: having 28%+ in chosen flavor(s) scores near 1.0
-        const directScore = Math.min(1, chosenSum / 32);
+        const directScore = Math.min(1, chosenPercent / 32);
         if (refStrain) {
           const refSim = cosineSimilarity(
             flavorVector(refStrain),
@@ -90,11 +101,22 @@ function scoreCriterion(
 
     case 'effects': {
       if (criterion.subValues.length > 0) {
+        const shares = getEffectShares(candidate);
+        const maxRaw = Math.max(
+          ...ALL_EFFECT_KEYS.map((k) => candidate.effectsProfile[k] ?? 0),
+          1
+        );
         const avgTarget =
           criterion.subValues.reduce((acc, e) => {
-            return acc + (candidate.effectsProfile[e as EffectKey] ?? 0);
+            const key = e as EffectKey;
+            const share = shares[key]?.exactPercent ?? 0;
+            const raw = candidate.effectsProfile[key] ?? 0;
+            // Blend share-of-mentions with strength relative to the strain's top effect
+            const score =
+              0.5 * Math.min(1, share / 20) + 0.5 * Math.min(1, raw / maxRaw);
+            return acc + score;
           }, 0) / criterion.subValues.length;
-        const directScore = Math.min(1, avgTarget / 92);
+        const directScore = Math.min(1, avgTarget);
         if (refStrain) {
           const refSim = cosineSimilarity(
             effectVector(refStrain),
@@ -314,11 +336,164 @@ export function getSimilarStrains(
     .slice(0, limit);
 }
 
+/**
+ * Returns every flavor note with normalized percentage shares (supports both raw review counts and 100-based profiles).
+ */
 export function getSortedFlavors(
   strain: Strain
-): Array<{ flavor: FlavorKey; percent: number }> {
-  return (Object.entries(strain.flavorProfile) as Array<[FlavorKey, number]>)
-    .filter(([, val]) => val > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([flavor, percent]) => ({ flavor, percent }));
+): Array<{ flavor: FlavorKey; percent: number; exactPercent: number }> {
+  const entries = (
+    Object.entries(strain.flavorProfile) as Array<[FlavorKey, number]>
+  ).filter(([, val]) => val > 0);
+  const total = entries.reduce((sum, [, val]) => sum + val, 0) || 100;
+
+  return entries
+    .map(([flavor, raw]) => {
+      const exactPercent = (raw / total) * 100;
+      return {
+        flavor,
+        percent: Math.max(1, Math.round(exactPercent)),
+        exactPercent,
+      };
+    })
+    .sort((a, b) => b.exactPercent - a.exactPercent);
+}
+
+/**
+ * Largest-remainder rounding so pie slice percentages always sum cleanly to 100%.
+ */
+function roundPercentagesTo100(exactValues: number[]): number[] {
+  if (exactValues.length === 0) return [];
+  const floors = exactValues.map((v) => Math.floor(v));
+  let remainder = 100 - floors.reduce((sum, v) => sum + v, 0);
+
+  const ranked = exactValues
+    .map((v, idx) => ({ idx, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+
+  const result = [...floors];
+  for (let i = 0; i < ranked.length && remainder > 0; i++) {
+    result[ranked[i].idx] += 1;
+    remainder -= 1;
+  }
+  return result;
+}
+
+/**
+ * Builds an uncluttered chart-ready flavor breakdown:
+ * - Keeps all flavors >= minPercent (default 3%), plus any flavor explicitly selected/highlighted by the user.
+ * - Combines remaining minor notes (when 2 or more exist) into a single "Other" slice placed last,
+ *   while preserving their exact breakdown for hover/tap inspection.
+ */
+export function getChartFlavors(
+  strain: Strain,
+  highlightedFlavors: string[] = [],
+  minPercent = 3
+): ChartFlavorItem[] {
+  const sorted = getSortedFlavors(strain);
+  if (sorted.length === 0) return [];
+
+  const major: typeof sorted = [];
+  const minor: typeof sorted = [];
+
+  for (const item of sorted) {
+    const isHighlighted = highlightedFlavors.includes(item.flavor);
+    if (item.exactPercent >= minPercent || isHighlighted) {
+      major.push(item);
+    } else {
+      minor.push(item);
+    }
+  }
+
+  // Only fold into "Other" when 2+ minor notes exist; a single small note is clearer named directly
+  if (minor.length === 1) {
+    major.push(minor[0]);
+    minor.length = 0;
+  }
+
+  const combinedExact: number[] = major.map((m) => m.exactPercent);
+  const otherExact = minor.reduce((sum, m) => sum + m.exactPercent, 0);
+  if (minor.length > 0) {
+    combinedExact.push(otherExact);
+  }
+
+  const rounded = roundPercentagesTo100(combinedExact);
+
+  const chartItems: ChartFlavorItem[] = major.map((m, idx) => ({
+    flavor: m.flavor,
+    percent: Math.max(1, rounded[idx]),
+    exactPercent: m.exactPercent,
+  }));
+
+  if (minor.length > 0) {
+    chartItems.push({
+      flavor: 'Other',
+      percent: rounded[rounded.length - 1],
+      exactPercent: otherExact,
+      otherBreakdown: minor.map((m) => ({
+        flavor: m.flavor,
+        percent: Math.max(1, Math.round(m.exactPercent)),
+      })),
+    });
+  }
+
+  return chartItems;
+}
+
+export interface EffectShareItem {
+  effect: EffectKey;
+  raw: number;
+  percent: number;
+  exactPercent: number;
+}
+
+/**
+ * Converts raw effect review mention counts into normalized % shares of total effect mentions
+ * across all effects (8 dial effects + Giggly & Talkative).
+ * Tied mention counts always produce identical percentages; omitted/0 effects stay 0%.
+ */
+export function getEffectShares(
+  strain: Strain
+): Record<EffectKey, EffectShareItem> {
+  const total = ALL_EFFECT_KEYS.reduce(
+    (sum, key) => sum + Math.max(0, strain.effectsProfile[key] ?? 0),
+    0
+  );
+
+  const result = {} as Record<EffectKey, EffectShareItem>;
+  for (const effect of ALL_EFFECT_KEYS) {
+    const raw = Math.max(0, strain.effectsProfile[effect] ?? 0);
+    const exactPercent = total > 0 ? (raw / total) * 100 : 0;
+    const percent = raw === 0 ? 0 : Math.max(1, Math.round(exactPercent));
+    result[effect] = { effect, raw, percent, exactPercent };
+  }
+  return result;
+}
+
+/**
+ * Returns non-zero secondary effects (Giggly, Talkative) sorted by mention share descending,
+ * formatted for the "Smokers also mention" footnote beneath the 8-effect dial.
+ */
+export function getSecondaryEffectShares(strain: Strain): EffectShareItem[] {
+  const shares = getEffectShares(strain);
+  return SECONDARY_EFFECT_KEYS.map((key) => shares[key])
+    .filter((item) => item.raw > 0)
+    .sort((a, b) => b.exactPercent - a.exactPercent);
+}
+
+/**
+ * Computes a clean outer-ring percentage ceiling (multiple of 5%, minimum 25%)
+ * across the 8 primary dial spokes so polygons remain legible and share a consistent scale.
+ */
+export function getEffectRadarScaleMax(strains: Strain[]): number {
+  let peak = 0;
+  for (const strain of strains) {
+    const shares = getEffectShares(strain);
+    for (const effect of EFFECT_CLOCK_ORDER) {
+      if (shares[effect].exactPercent > peak) {
+        peak = shares[effect].exactPercent;
+      }
+    }
+  }
+  return Math.max(25, Math.min(100, Math.ceil(peak / 5) * 5));
 }

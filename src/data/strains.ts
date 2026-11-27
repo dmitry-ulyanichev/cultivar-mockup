@@ -2,6 +2,8 @@ import {
   CarouselCategory,
   EffectKey,
   FlavorKey,
+  PrimaryEffectKey,
+  SecondaryEffectKey,
   Strain,
 } from '../types/strain';
 
@@ -9,47 +11,76 @@ import {
  * Intuitive, botanical-grounded flavor colors adapted for high legibility on dark charcoal surfaces.
  * Aligned with the user's original draft flavor palette.
  */
+export const OTHER_FLAVOR_COLOR = '#64748B';
+
 export const FLAVOR_COLORS: Record<FlavorKey, string> = {
-  Earthy: '#9A5423',
-  Citrus: '#F59E0B',
-  Herbs: '#86EFAC',
-  Pine: '#22A447',
-  Woody: '#B46218',
-  Fruity: '#F472B6',
-  Flowery: '#D4B8DF',
   Berries: '#9333EA',
-  Sweet: '#FACC15',
+  Caramel: '#C97A40',
+  Cheese: '#EA580C',
+  Chocolate: '#7F4F3E',
+  Citrus: '#F59E0B',
+  Cream: '#F3E5AB',
   Diesel: '#38BDF8',
+  Earthy: '#9A5423',
+  Flowery: '#D4B8DF',
+  Fruity: '#F472B6',
+  Herbs: '#86EFAC',
+  Mint: '#2DD4BF',
+  Nutty: '#D6A679',
+  Pine: '#22A447',
+  Pungent: '#65A30D',
+  Sour: '#C4E538',
+  Sweet: '#FACC15',
+  Tropical: '#FB7185',
+  Woody: '#B46218',
 };
 
 export const FLAVOR_ORDER: FlavorKey[] = [
-  'Earthy',
-  'Citrus',
-  'Herbs',
-  'Pine',
-  'Woody',
-  'Fruity',
-  'Flowery',
   'Berries',
-  'Sweet',
+  'Caramel',
+  'Cheese',
+  'Chocolate',
+  'Citrus',
+  'Cream',
   'Diesel',
+  'Earthy',
+  'Flowery',
+  'Fruity',
+  'Herbs',
+  'Mint',
+  'Nutty',
+  'Pine',
+  'Pungent',
+  'Sour',
+  'Sweet',
+  'Tropical',
+  'Woody',
 ];
 
 /**
- * Clockwise 10-effect order:
- * 12:00 Energetic -> stimulating upper arc -> 6:00 Sleepy -> relaxing lower arc
+ * Clockwise 8-effect octagonal dial order:
+ * 12:00 Energetic -> 1:30 Uplifted -> 3:00 Creative -> 4:30 Hungry
+ * -> 6:00 Sleepy -> 7:30 Relaxed -> 9:00 Happy -> 10:30 Euphoric
  */
-export const EFFECT_CLOCK_ORDER: EffectKey[] = [
+export const EFFECT_CLOCK_ORDER: PrimaryEffectKey[] = [
   'Energetic',
   'Uplifted',
-  'Focused',
-  'Giggly',
+  'Creative',
   'Hungry',
   'Sleepy',
   'Relaxed',
   'Happy',
   'Euphoric',
-  'Creative',
+];
+
+export const SECONDARY_EFFECT_KEYS: SecondaryEffectKey[] = [
+  'Giggly',
+  'Talkative',
+];
+
+export const ALL_EFFECT_KEYS: EffectKey[] = [
+  ...EFFECT_CLOCK_ORDER,
+  ...SECONDARY_EFFECT_KEYS,
 ];
 
 export const STRAINS: Strain[] = [
@@ -60,40 +91,124 @@ export const STRAINS: Strain[] = [
     breederCode: 'FB',
     geneticsType: 'Indica-dominant',
     sativaRatio: 15,
+    // Real smoke-report Sativa/Indica ratings (n = 23; Huber consensus: 77% Indica / 23% Sativa)
+    sativaIndicaVotes: [
+      { indicaPercent: 0, count: 3 },
+      { indicaPercent: 20, count: 1 },
+      { indicaPercent: 40, count: 1 },
+      { indicaPercent: 60, count: 2 },
+      { indicaPercent: 70, count: 2 },
+      { indicaPercent: 75, count: 2 },
+      { indicaPercent: 80, count: 1 },
+      { indicaPercent: 85, count: 4 },
+      { indicaPercent: 90, count: 3 },
+      { indicaPercent: 95, count: 2 },
+      { indicaPercent: 100, count: 2 },
+    ],
     seedType: 'Autoflower',
     rating: 4.7,
     reviewTier: '100+',
     popularityViews: 94200,
     trendingScore: 88,
     odorLevel: 'Medium',
+    // Real flowering smell reports (n = 27: No smell 1, Weak 3, Medium 11, Strong 12)
+    smellDuringFlowering: { none: 1, weak: 3, medium: 11, strong: 12 },
+    // Real review mention counts (70 total mentions across 16 notes)
     flavorProfile: {
-      Earthy: 24,
-      Citrus: 16,
-      Herbs: 14,
-      Pine: 13,
+      Earthy: 13,
       Woody: 11,
-      Fruity: 8,
-      Flowery: 6,
-      Berries: 4,
-      Sweet: 4,
+      Sweet: 8,
+      Pine: 7,
+      Pungent: 7,
+      Fruity: 4,
+      Citrus: 3,
+      Sour: 3,
+      Diesel: 2,
+      Chocolate: 2,
+      Nutty: 2,
+      Berries: 2,
+      Flowery: 2,
+      Herbs: 2,
+      Tropical: 1,
+      Cream: 1,
     },
+    // Real review mention counts (70 total mentions across 9 effects; Energetic = 0)
     effectsProfile: {
-      Energetic: 14,
-      Uplifted: 28,
-      Focused: 24,
-      Giggly: 34,
-      Hungry: 74,
-      Sleepy: 88,
-      Relaxed: 95,
-      Happy: 72,
-      Euphoric: 56,
-      Creative: 22,
+      Relaxed: 20,
+      Sleepy: 10,
+      Hungry: 10,
+      Happy: 10,
+      Uplifted: 7,
+      Euphoric: 5,
+      Creative: 5,
+      Giggly: 2,
+      Talkative: 1,
     },
     easeOfGrowing: { easy: 76, medium: 20, hard: 4 },
-    durationWeeks: { min: 7.5, typicalLow: 8.5, median: 9.0, typicalHigh: 10.0, max: 11.5 },
+    // Real grower diary counts (N = 35; avg 11.4 wks, median 11 wks, IQR typical 10–13 wks)
+    durationWeeks: {
+      min: 8,
+      typicalLow: 10,
+      median: 11,
+      average: 11.4,
+      typicalHigh: 13,
+      max: 15,
+      buckets: [
+        { value: 8, count: 2 },
+        { value: 9, count: 3 },
+        { value: 10, count: 11 },
+        { value: 11, count: 3 },
+        { value: 12, count: 5 },
+        { value: 13, count: 3 },
+        { value: 14, count: 5 },
+        { value: 15, count: 3 },
+      ],
+    },
     yieldIndoorGm2: { min: 320, typicalLow: 420, median: 475, typicalHigh: 530, max: 600 },
-    yieldOutdoorGPlant: { min: 55, typicalLow: 85, median: 110, typicalHigh: 135, max: 170 },
-    heightCm: { min: 55, typicalLow: 65, median: 78, typicalHigh: 90, max: 105 },
+    // Real grower per-plant yields (raw N = 20; Tukey 1.5xIQR upper fence = 222.4 g omits 337 & 384 g outliers -> N = 18; avg 80.4 g -> 80 g, median 78 g, IQR typical 45–108 g)
+    yieldOutdoorGPlant: {
+      min: 19,
+      typicalLow: 45,
+      median: 78,
+      average: 80,
+      typicalHigh: 108,
+      max: 164,
+      rawValues: [
+        19, 34, 38, 40, 42, 55, 57, 70, 77, 79, 92, 99, 102, 110, 120, 120,
+        130, 164,
+      ],
+      buckets: [
+        { value: 0, end: 25, count: 1 },
+        { value: 25, end: 50, count: 4 },
+        { value: 50, end: 75, count: 3 },
+        { value: 75, end: 100, count: 4 },
+        { value: 100, end: 125, count: 4 },
+        { value: 125, end: 150, count: 1 },
+        { value: 150, end: 175, count: 1 },
+      ],
+    },
+    // Real grower measurements (N = 31; min 21 cm, max 160 cm, avg 73.8 cm -> 74 cm, median 70 cm, IQR typical 44–88 cm)
+    heightCm: {
+      min: 21,
+      typicalLow: 44,
+      median: 70,
+      average: 74,
+      typicalHigh: 88,
+      max: 160,
+      rawValues: [
+        21, 27, 30, 30, 35, 36, 38, 43, 45, 51, 58, 60, 60, 61, 64, 70, 71, 72,
+        76, 76, 80, 80, 85, 90, 99, 120, 127, 130, 142, 150, 160,
+      ],
+      buckets: [
+        { value: 20, end: 40, count: 7 },
+        { value: 40, end: 60, count: 4 },
+        { value: 60, end: 80, count: 9 },
+        { value: 80, end: 100, count: 5 },
+        { value: 100, end: 120, count: 0 },
+        { value: 120, end: 140, count: 3 },
+        { value: 140, end: 160, count: 3 },
+      ],
+    },
     tags: ['auto', 'beginner', 'stealth'],
     shortNote: 'Compact, resin-heavy classic built for tight indoor spaces and hassle-free beginner runs.',
   },
@@ -122,7 +237,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 34,
       Uplifted: 64,
-      Focused: 42,
+      Talkative: 58,
       Giggly: 68,
       Hungry: 70,
       Sleepy: 52,
@@ -163,7 +278,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 16,
       Uplifted: 36,
-      Focused: 28,
+      Talkative: 28,
       Giggly: 38,
       Hungry: 68,
       Sleepy: 84,
@@ -204,7 +319,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 58,
       Uplifted: 84,
-      Focused: 54,
+      Talkative: 66,
       Giggly: 62,
       Hungry: 46,
       Sleepy: 34,
@@ -245,7 +360,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 92,
       Uplifted: 90,
-      Focused: 76,
+      Talkative: 72,
       Giggly: 64,
       Hungry: 36,
       Sleepy: 12,
@@ -286,7 +401,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 24,
       Uplifted: 52,
-      Focused: 34,
+      Talkative: 34,
       Giggly: 54,
       Hungry: 66,
       Sleepy: 72,
@@ -327,7 +442,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 72,
       Uplifted: 88,
-      Focused: 70,
+      Talkative: 64,
       Giggly: 52,
       Hungry: 48,
       Sleepy: 26,
@@ -368,7 +483,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 54,
       Uplifted: 74,
-      Focused: 58,
+      Talkative: 58,
       Giggly: 56,
       Hungry: 58,
       Sleepy: 44,
@@ -409,7 +524,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 20,
       Uplifted: 42,
-      Focused: 30,
+      Talkative: 30,
       Giggly: 46,
       Hungry: 62,
       Sleepy: 76,
@@ -450,7 +565,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 44,
       Uplifted: 72,
-      Focused: 46,
+      Talkative: 46,
       Giggly: 66,
       Hungry: 58,
       Sleepy: 54,
@@ -491,7 +606,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 28,
       Uplifted: 50,
-      Focused: 38,
+      Talkative: 38,
       Giggly: 44,
       Hungry: 54,
       Sleepy: 66,
@@ -532,7 +647,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 22,
       Uplifted: 48,
-      Focused: 32,
+      Talkative: 32,
       Giggly: 56,
       Hungry: 72,
       Sleepy: 78,
@@ -573,7 +688,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 12,
       Uplifted: 26,
-      Focused: 22,
+      Talkative: 22,
       Giggly: 32,
       Hungry: 74,
       Sleepy: 90,
@@ -614,7 +729,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 30,
       Uplifted: 56,
-      Focused: 36,
+      Talkative: 36,
       Giggly: 60,
       Hungry: 62,
       Sleepy: 64,
@@ -655,7 +770,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 86,
       Uplifted: 88,
-      Focused: 68,
+      Talkative: 74,
       Giggly: 62,
       Hungry: 42,
       Sleepy: 16,
@@ -696,7 +811,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 88,
       Uplifted: 86,
-      Focused: 74,
+      Talkative: 74,
       Giggly: 58,
       Hungry: 38,
       Sleepy: 14,
@@ -727,17 +842,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 74,
     odorLevel: 'Low',
     flavorProfile: {
-      Sweet: 36,
-      Earthy: 24,
-      Woody: 14,
-      Fruity: 12,
-      Flowery: 8,
-      Herbs: 6,
+      Caramel: 28,
+      Sweet: 24,
+      Cream: 18,
+      Earthy: 14,
+      Nutty: 10,
+      Woody: 6,
     },
     effectsProfile: {
       Energetic: 14,
       Uplifted: 34,
-      Focused: 24,
+      Talkative: 24,
       Giggly: 40,
       Hungry: 66,
       Sleepy: 84,
@@ -768,17 +883,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 94,
     odorLevel: 'High',
     flavorProfile: {
-      Berries: 30,
-      Fruity: 24,
-      Diesel: 18,
-      Sweet: 16,
-      Citrus: 8,
-      Earthy: 4,
+      Sour: 28,
+      Berries: 24,
+      Fruity: 18,
+      Diesel: 14,
+      Sweet: 10,
+      Citrus: 6,
     },
     effectsProfile: {
       Energetic: 54,
       Uplifted: 78,
-      Focused: 56,
+      Talkative: 68,
       Giggly: 68,
       Hungry: 56,
       Sleepy: 42,
@@ -819,7 +934,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 34,
       Uplifted: 64,
-      Focused: 44,
+      Talkative: 44,
       Giggly: 62,
       Hungry: 64,
       Sleepy: 56,
@@ -860,7 +975,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 96,
       Uplifted: 90,
-      Focused: 86,
+      Talkative: 70,
       Giggly: 50,
       Hungry: 28,
       Sleepy: 8,
@@ -901,7 +1016,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 12,
       Uplifted: 28,
-      Focused: 24,
+      Talkative: 24,
       Giggly: 34,
       Hungry: 72,
       Sleepy: 92,
@@ -942,7 +1057,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 14,
       Uplifted: 36,
-      Focused: 22,
+      Talkative: 22,
       Giggly: 44,
       Hungry: 74,
       Sleepy: 88,
@@ -983,7 +1098,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 56,
       Uplifted: 74,
-      Focused: 60,
+      Talkative: 60,
       Giggly: 54,
       Hungry: 54,
       Sleepy: 44,
@@ -1024,7 +1139,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 82,
       Uplifted: 86,
-      Focused: 80,
+      Talkative: 80,
       Giggly: 52,
       Hungry: 38,
       Sleepy: 18,
@@ -1065,7 +1180,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 92,
       Uplifted: 88,
-      Focused: 82,
+      Talkative: 82,
       Giggly: 56,
       Hungry: 36,
       Sleepy: 12,
@@ -1105,7 +1220,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 82,
       Uplifted: 88,
-      Focused: 66,
+      Talkative: 66,
       Giggly: 70,
       Hungry: 44,
       Sleepy: 22,
@@ -1146,7 +1261,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 18,
       Uplifted: 42,
-      Focused: 30,
+      Talkative: 30,
       Giggly: 44,
       Hungry: 70,
       Sleepy: 80,
@@ -1177,17 +1292,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 90,
     odorLevel: 'High',
     flavorProfile: {
-      Sweet: 30,
-      Fruity: 20,
+      Cream: 26,
+      Sweet: 22,
       Berries: 18,
-      Earthy: 14,
-      Citrus: 10,
-      Woody: 8,
+      Mint: 14,
+      Earthy: 12,
+      Chocolate: 8,
     },
     effectsProfile: {
       Energetic: 34,
       Uplifted: 64,
-      Focused: 48,
+      Talkative: 48,
       Giggly: 60,
       Hungry: 62,
       Sleepy: 54,
@@ -1218,17 +1333,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 84,
     odorLevel: 'Medium',
     flavorProfile: {
-      Fruity: 38,
-      Sweet: 24,
-      Citrus: 18,
-      Pine: 10,
-      Earthy: 6,
-      Woody: 4,
+      Tropical: 34,
+      Fruity: 26,
+      Sweet: 18,
+      Citrus: 12,
+      Pine: 6,
+      Earthy: 4,
     },
     effectsProfile: {
       Energetic: 58,
       Uplifted: 78,
-      Focused: 54,
+      Talkative: 54,
       Giggly: 72,
       Hungry: 58,
       Sleepy: 38,
@@ -1269,7 +1384,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 40,
       Uplifted: 64,
-      Focused: 44,
+      Talkative: 44,
       Giggly: 58,
       Hungry: 56,
       Sleepy: 52,
@@ -1300,17 +1415,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 87,
     odorLevel: 'High',
     flavorProfile: {
-      Herbs: 30,
-      Earthy: 26,
-      Diesel: 18,
-      Woody: 14,
-      Sweet: 8,
-      Pine: 4,
+      Pungent: 28,
+      Cheese: 22,
+      Earthy: 20,
+      Nutty: 14,
+      Diesel: 10,
+      Herbs: 6,
     },
     effectsProfile: {
       Energetic: 16,
       Uplifted: 34,
-      Focused: 28,
+      Talkative: 28,
       Giggly: 46,
       Hungry: 78,
       Sleepy: 84,
@@ -1351,7 +1466,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 58,
       Uplifted: 72,
-      Focused: 54,
+      Talkative: 54,
       Giggly: 52,
       Hungry: 44,
       Sleepy: 30,
@@ -1392,7 +1507,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 24,
       Uplifted: 52,
-      Focused: 38,
+      Talkative: 38,
       Giggly: 50,
       Hungry: 64,
       Sleepy: 68,
@@ -1433,7 +1548,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 54,
       Uplifted: 74,
-      Focused: 58,
+      Talkative: 58,
       Giggly: 48,
       Hungry: 46,
       Sleepy: 36,
@@ -1464,17 +1579,16 @@ export const STRAINS: Strain[] = [
     trendingScore: 93,
     odorLevel: 'Medium',
     flavorProfile: {
-      Fruity: 40,
-      Citrus: 24,
-      Sweet: 18,
-      Flowery: 10,
-      Herbs: 5,
-      Pine: 3,
+      Tropical: 38,
+      Fruity: 26,
+      Citrus: 18,
+      Sweet: 12,
+      Flowery: 6,
     },
     effectsProfile: {
       Energetic: 90,
       Uplifted: 94,
-      Focused: 72,
+      Talkative: 72,
       Giggly: 76,
       Hungry: 40,
       Sleepy: 12,
@@ -1515,7 +1629,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 30,
       Uplifted: 56,
-      Focused: 38,
+      Talkative: 38,
       Giggly: 54,
       Hungry: 64,
       Sleepy: 68,
@@ -1556,7 +1670,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 66,
       Uplifted: 84,
-      Focused: 64,
+      Talkative: 64,
       Giggly: 62,
       Hungry: 48,
       Sleepy: 30,
@@ -1596,7 +1710,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 28,
       Uplifted: 56,
-      Focused: 42,
+      Talkative: 42,
       Giggly: 46,
       Hungry: 60,
       Sleepy: 66,
@@ -1636,7 +1750,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 18,
       Uplifted: 42,
-      Focused: 30,
+      Talkative: 30,
       Giggly: 44,
       Hungry: 62,
       Sleepy: 78,
@@ -1677,7 +1791,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 78,
       Uplifted: 84,
-      Focused: 80,
+      Talkative: 80,
       Giggly: 52,
       Hungry: 44,
       Sleepy: 22,
@@ -1718,7 +1832,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 44,
       Uplifted: 72,
-      Focused: 50,
+      Talkative: 50,
       Giggly: 62,
       Hungry: 56,
       Sleepy: 44,
@@ -1759,7 +1873,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 14,
       Uplifted: 32,
-      Focused: 24,
+      Talkative: 24,
       Giggly: 38,
       Hungry: 70,
       Sleepy: 88,
@@ -1790,17 +1904,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 90,
     odorLevel: 'High',
     flavorProfile: {
-      Sweet: 28,
-      Earthy: 24,
-      Herbs: 16,
-      Woody: 12,
-      Diesel: 12,
-      Citrus: 8,
+      Chocolate: 24,
+      Sweet: 22,
+      Mint: 18,
+      Nutty: 16,
+      Earthy: 12,
+      Cream: 8,
     },
     effectsProfile: {
       Energetic: 42,
       Uplifted: 68,
-      Focused: 48,
+      Talkative: 48,
       Giggly: 62,
       Hungry: 66,
       Sleepy: 54,
@@ -1831,17 +1945,17 @@ export const STRAINS: Strain[] = [
     trendingScore: 72,
     odorLevel: 'High',
     flavorProfile: {
-      Earthy: 28,
-      Fruity: 22,
-      Sweet: 20,
-      Herbs: 14,
-      Pine: 10,
-      Woody: 6,
+      Pungent: 28,
+      Cheese: 24,
+      Earthy: 20,
+      Sweet: 14,
+      Fruity: 8,
+      Pine: 6,
     },
     effectsProfile: {
       Energetic: 46,
       Uplifted: 70,
-      Focused: 48,
+      Talkative: 48,
       Giggly: 62,
       Hungry: 60,
       Sleepy: 48,
@@ -1882,7 +1996,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 58,
       Uplifted: 80,
-      Focused: 60,
+      Talkative: 60,
       Giggly: 64,
       Hungry: 50,
       Sleepy: 36,
@@ -1923,7 +2037,7 @@ export const STRAINS: Strain[] = [
     effectsProfile: {
       Energetic: 22,
       Uplifted: 50,
-      Focused: 32,
+      Talkative: 32,
       Giggly: 54,
       Hungry: 70,
       Sleepy: 78,
@@ -1959,7 +2073,7 @@ export const CAROUSEL_CATEGORIES: CarouselCategory[] = [
     metricLabel: 'Rating',
     filterAndSort: (strains) =>
       [...strains].sort((a, b) => b.trendingScore - a.trendingScore),
-    formatMetric: (s) => `${s.rating.toFixed(1)} / 5`,
+    formatMetric: (s) => `${s.rating.toFixed(1)}/5`,
   },
   {
     id: 'highest-rated',
@@ -1971,7 +2085,7 @@ export const CAROUSEL_CATEGORIES: CarouselCategory[] = [
         (a, b) =>
           b.rating - a.rating || b.popularityViews - a.popularityViews
       ),
-    formatMetric: (s) => `${s.rating.toFixed(1)} / 5`,
+    formatMetric: (s) => `${s.rating.toFixed(1)}/5`,
   },
   {
     id: 'top-autos',
@@ -2013,15 +2127,22 @@ export const CAROUSEL_CATEGORIES: CarouselCategory[] = [
     title: 'Lemony & Citrus',
     subtitle: 'Bright zesty terpene profiles',
     metricLabel: 'Citrus',
-    filterAndSort: (strains) =>
-      strains
-        .filter((s) => s.tags.includes('lemony') || (s.flavorProfile.Citrus ?? 0) >= 24)
-        .sort(
-          (a, b) =>
-            (b.flavorProfile.Citrus ?? 0) - (a.flavorProfile.Citrus ?? 0) ||
-            b.rating - a.rating
-        ),
-    formatMetric: (s) => `${s.flavorProfile.Citrus ?? 0}% citrus`,
+    filterAndSort: (strains) => {
+      const citrusPct = (s: Strain) => {
+        const total =
+          Object.values(s.flavorProfile).reduce((a, b) => a + (b ?? 0), 0) ||
+          100;
+        return ((s.flavorProfile.Citrus ?? 0) / total) * 100;
+      };
+      return strains
+        .filter((s) => s.tags.includes('lemony') || citrusPct(s) >= 24)
+        .sort((a, b) => citrusPct(b) - citrusPct(a) || b.rating - a.rating);
+    },
+    formatMetric: (s) => {
+      const total =
+        Object.values(s.flavorProfile).reduce((a, b) => a + (b ?? 0), 0) || 100;
+      return `${Math.round(((s.flavorProfile.Citrus ?? 0) / total) * 100)}% citrus`;
+    },
   },
 ];
 

@@ -46,10 +46,10 @@ export const PopularCarousel: React.FC<PopularCarouselProps> = ({
               isMobileLayout ? 'text-lg' : 'text-xl'
             }`}
           >
-            Popular Seed Lists
+            Popular Strain Lists
           </h2>
           <p className="text-xs sm:text-sm text-[#969FA9] mt-0.5">
-            Curated grower rankings across {CAROUSEL_CATEGORIES.length} categories
+            Curated user rankings across {CAROUSEL_CATEGORIES.length} categories
             {' '}· Swipe or browse left and right
           </p>
         </div>
