@@ -1,11 +1,12 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Star } from 'lucide-react';
+import { ArrowUpRight, Star, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   MatchResult,
   SelectionCriterion,
   Strain,
   TraitType,
 } from '../types/strain';
+import { getFinderRowHighlights } from '../utils/matching';
 import { ComparisonChartStack } from './ComparisonChartStack';
 
 interface MatchResultsPanelProps {
@@ -117,6 +118,10 @@ export const MatchResultsPanel: React.FC<MatchResultsPanelProps> = ({
       <ul className="divide-y divide-white/[0.06]">
         {visibleMatches.map((item, idx) => {
           const isExpanded = hasTraits && activeMatch?.strain.id === item.strain.id;
+          const rowHighlights =
+            hasTraits && !isExpanded
+              ? getFinderRowHighlights(item.strain, criteria, referenceStrain)
+              : [];
 
           return (
             <li
@@ -173,6 +178,45 @@ export const MatchResultsPanel: React.FC<MatchResultsPanelProps> = ({
                           </>
                         )}
                       </div>
+
+                      {rowHighlights.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs">
+                          {rowHighlights.map((hl, hIdx) => (
+                            <React.Fragment
+                              key={`${item.strain.id}-${hl.label}-${hIdx}`}
+                            >
+                              {hIdx > 0 && (
+                                <span
+                                  aria-hidden="true"
+                                  className="text-[#5C6672] select-none"
+                                >
+                                  ·
+                                </span>
+                              )}
+                              <span
+                                className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${
+                                  hl.tone === 'positive'
+                                    ? 'text-emerald-300'
+                                    : 'text-rose-300/90'
+                                }`}
+                              >
+                                {hl.tone === 'positive' ? (
+                                  <TrendingUp
+                                    aria-hidden="true"
+                                    className="w-3 h-3 shrink-0"
+                                  />
+                                ) : (
+                                  <TrendingDown
+                                    aria-hidden="true"
+                                    className="w-3 h-3 shrink-0"
+                                  />
+                                )}
+                                <span>{hl.label}</span>
+                              </span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 

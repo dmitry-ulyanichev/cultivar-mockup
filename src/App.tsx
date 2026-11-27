@@ -10,6 +10,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ArrowLeft,
   BarChart3,
@@ -36,6 +37,8 @@ export default function App() {
   // Navigation state
   const [activeView, setActiveView] = useState<ActiveView>({ type: 'home' });
   const [previousView, setPreviousView] = useState<ActiveView>({ type: 'home' });
+
+  const prefersReducedMotion = useReducedMotion();
 
   // Dual mockup preview mode (Desktop default vs interactive 390px Mobile mockup)
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -554,9 +557,23 @@ export default function App() {
                   aria-label="Interactive strain selection workspace"
                   className="pt-6 border-t border-white/[0.07]"
                 >
-                  <div className="grid grid-cols-1 lg:grid-cols-[350px_minmax(0,1fr)] xl:grid-cols-[385px_minmax(0,1fr)] gap-6 items-start">
-                    {/* Left: Conversational Selection Block */}
-                    <div className="lg:sticky lg:top-24">
+                  <div className="flex flex-col lg:flex-row items-start">
+                    {/* Left centering spacer: balances right column before results appear, then collapses smoothly to dock Finder left */}
+                    <div
+                      aria-hidden="true"
+                      className={`hidden lg:block basis-0 shrink-0 transition-[flex-grow] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                        hasLiveMatches ? 'grow-0' : 'grow'
+                      }`}
+                    />
+
+                    {/* Conversational Selection Block */}
+                    <div
+                      className={`w-full shrink-0 lg:sticky lg:top-24 transition-[width] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                        hasLiveMatches
+                          ? 'lg:w-[350px] xl:w-[385px]'
+                          : 'max-w-[660px] mx-auto lg:mx-0 lg:max-w-none lg:w-[660px]'
+                      }`}
+                    >
                       <ConversationalFinder
                         referenceStrain={referenceStrain}
                         referenceSkipped={referenceSkipped}
@@ -572,15 +589,52 @@ export default function App() {
                     </div>
 
                     {/* Right: Live Ranked Matches & Stacked Side-by-Side Comparison Charts */}
-                    <MatchResultsPanel
-                      referenceStrain={referenceStrain}
-                      criteria={criteria}
-                      matches={rankedMatches}
-                      comparedMatchId={comparedMatchId}
-                      onSelectComparedMatch={setComparedMatchId}
-                      onOpenStrainProfile={handleOpenStrain}
-                      onRemoveCriterion={handleRemoveCriterion}
-                    />
+                    <div
+                      className={`w-full lg:w-auto lg:flex-1 min-w-0 transition-[margin] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                        hasLiveMatches ? 'mt-6 lg:mt-0 lg:ml-6' : 'mt-0 lg:ml-0'
+                      }`}
+                    >
+                      <AnimatePresence initial={false}>
+                        {hasLiveMatches && (
+                          <motion.div
+                            key="match-results-panel"
+                            initial={
+                              prefersReducedMotion
+                                ? false
+                                : { opacity: 0, x: 14 }
+                            }
+                            animate={{
+                              opacity: 1,
+                              x: 0,
+                              transition: {
+                                duration: 0.3,
+                                delay: prefersReducedMotion ? 0 : 0.12,
+                                ease: [0.22, 1, 0.36, 1],
+                              },
+                            }}
+                            exit={{
+                              opacity: 0,
+                              x: prefersReducedMotion ? 0 : 8,
+                              transition: {
+                                duration: 0.14,
+                                delay: 0,
+                                ease: 'easeOut',
+                              },
+                            }}
+                          >
+                            <MatchResultsPanel
+                              referenceStrain={referenceStrain}
+                              criteria={criteria}
+                              matches={rankedMatches}
+                              comparedMatchId={comparedMatchId}
+                              onSelectComparedMatch={setComparedMatchId}
+                              onOpenStrainProfile={handleOpenStrain}
+                              onRemoveCriterion={handleRemoveCriterion}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </section>
               </div>

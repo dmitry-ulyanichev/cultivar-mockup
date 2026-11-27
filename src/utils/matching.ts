@@ -497,3 +497,244 @@ export function getEffectRadarScaleMax(strains: Strain[]): number {
   }
   return Math.max(25, Math.min(100, Math.ceil(peak / 5) * 5));
 }
+
+export interface FinderHighlight {
+  label: string;
+  tone: 'positive' | 'negative';
+}
+
+function getFlavorExactPercent(strain: Strain, flavor: FlavorKey): number {
+  const total = Object.values(strain.flavorProfile).reduce(
+    (sum, val) => sum + Math.max(0, val ?? 0),
+    0
+  );
+  if (total <= 0) return 0;
+  return (Math.max(0, strain.flavorProfile[flavor] ?? 0) / total) * 100;
+}
+
+function odorToNumeric(strain: Strain): number {
+  if (strain.smellDuringFlowering) {
+    const { none, weak, medium, strong } = strain.smellDuringFlowering;
+    const total = none + weak + medium + strong;
+    if (total > 0) {
+      return (weak * 1 + medium * 2 + strong * 3) / total;
+    }
+  }
+  if (strain.odorLevel === 'Low') return 1.0;
+  if (strain.odorLevel === 'Medium') return 1.8;
+  return 2.6;
+}
+
+/**
+ * Computes concise directional trait highlights for collapsed Finder match rows:
+ * - Only emits meaningful positive/negative differences (never neutral "Similar" notes).
+ * - No parenthetical numbers.
+ * - Grouped strictly positive (green) first, followed by negative (red).
+ * - Isolated from `getSimilarStrains` so the full strain profile's Similar Strains list is unaffected.
+ */
+export function getFinderRowHighlights(
+  candidate: Strain,
+  criteria: SelectionCriterion[],
+  referenceStrain?: Strain
+): FinderHighlight[] {
+  if (criteria.length === 0) return [];
+
+  const positives: FinderHighlight[] = [];
+  const negatives: FinderHighlight[] = [];
+  const seen = new Set<string>();
+
+  const pushHighlight = (label: string, tone: 'positive' | 'negative') => {
+    if (seen.has(label)) return;
+    seen.add(label);
+    if (tone === 'positive') {
+      positives.push({ label, tone });
+    } else {
+      negatives.push({ label, tone });
+    }
+  };
+
+  for (const criterion of criteria) {
+    switch (criterion.type) {
+      case 'flavor': {
+        for (const sub of criterion.subValues) {
+          const flavor = sub as FlavorKey;
+          const candPct = getFlavorExactPercent(candidate, flavor);
+          if (referenceStrain) {
+            const refPct = getFlavorExactPercent(referenceStrain, flavor);
+            const diff = candPct - refPct;
+            if (diff >= 4 || (candPct >= 8 && refPct === 0)) {
+              pushHighlight(`More ${flavor}`, 'positive');
+            } else if (diff <= -4 || (candPct === 0 && refPct > 0)) {
+              pushHighlight(`Less ${flavor}`, 'negative');
+            }
+          } else {
+            if (candPct >= 14) {
+              pushHighlight(`Strong ${flavor}`, 'positive');
+            } else if (candPct >= 6) {
+              pushHighlight(`${flavor} notes`, 'positive');
+            } else if (candPct === 0) {
+              pushHighlight(`No ${flavor}`, 'negative');
+            }
+          }
+        }
+        break;
+      }
+
+      case 'effects': {
+        const candShares = getEffectShares(candidate);
+        const refShares = referenceStrain
+          ? getEffectShares(referenceStrain)
+          : null;
+        for (const sub of criterion.subValues) {
+          const effect = sub as EffectKey;
+          const candPct = candShares[effect]?.exactPercent ?? 0;
+          if (refShares) {
+            const refPct = refShares[effect]?.exactPercent ?? 0;
+            const diff = candPct - refPct;
+            if (diff >= 3.5 || (candPct >= 8 && refPct === 0)) {
+              pushHighlight(`More ${effect}`, 'positive');
+            } else if (diff <= -3.5 || (candPct === 0 && refPct > 0)) {
+              pushHighlight(`Less ${effect}`, 'negative');
+            }
+          } else {
+            if (candPct >= 14) {
+              pushHighlight(`Strong ${effect}`, 'positive');
+            } else if (candPct <= 3) {
+              pushHighlight(`Low ${effect}`, 'negative');
+            }
+          }
+        }
+        break;
+      }
+
+      case 'ease': {
+        if (referenceStrain) {
+          const diff =
+            candidate.easeOfGrowing.easy - referenceStrain.easeOfGrowing.easy;
+          if (diff >= 7) {
+            pushHighlight('Easier to grow', 'positive');
+          } else if (diff <= -7) {
+            pushHighlight('Harder to grow', 'negative');
+          }
+        } else {
+          if (candidate.easeOfGrowing.easy >= 70) {
+            pushHighlight('Easy to grow', 'positive');
+          } else if (candidate.easeOfGrowing.easy < 45) {
+            pushHighlight('More demanding', 'negative');
+          }
+        }
+        break;
+      }
+
+      case 'duration': {
+        const candWks =
+          candidate.durationWeeks.average ?? candidate.durationWeeks.median;
+        if (referenceStrain) {
+          const refWks =
+            referenceStrain.durationWeeks.average ??
+            referenceStrain.durationWeeks.median;
+          if (refWks - candWks >= 0.7) {
+            pushHighlight('Faster harvest', 'positive');
+          } else if (candWks - refWks >= 0.7) {
+            pushHighlight('Longer cycle', 'negative');
+          }
+        } else {
+          if (candWks <= 9.5) {
+            pushHighlight('Fast harvest', 'positive');
+          } else if (candWks >= 12) {
+            pushHighlight('Longer cycle', 'negative');
+          }
+        }
+        break;
+      }
+
+      case 'yield': {
+        const outdoor = criterion.subValues[0] === 'Outdoor (g/plant)';
+        const candPerPlant = outdoor || candidate.seedType === 'Autoflower';
+        const refPerPlant = referenceStrain
+          ? outdoor || referenceStrain.seedType === 'Autoflower'
+          : candPerPlant;
+
+        const candVal = candPerPlant
+          ? (candidate.yieldOutdoorGPlant.average ??
+            candidate.yieldOutdoorGPlant.median)
+          : (candidate.yieldIndoorGm2.average ??
+            candidate.yieldIndoorGm2.median);
+
+        if (referenceStrain && candPerPlant === refPerPlant) {
+          const refVal = refPerPlant
+            ? (referenceStrain.yieldOutdoorGPlant.average ??
+              referenceStrain.yieldOutdoorGPlant.median)
+            : (referenceStrain.yieldIndoorGm2.average ??
+              referenceStrain.yieldIndoorGm2.median);
+          if (refVal > 0 && candVal / refVal >= 1.12) {
+            pushHighlight('Higher yield', 'positive');
+          } else if (refVal > 0 && candVal / refVal <= 0.88) {
+            pushHighlight('Lower yield', 'negative');
+          }
+        } else {
+          const highCut = candPerPlant ? 110 : 520;
+          const lowCut = candPerPlant ? 65 : 380;
+          if (candVal >= highCut) {
+            pushHighlight('High yield', 'positive');
+          } else if (candVal < lowCut) {
+            pushHighlight('Modest yield', 'negative');
+          }
+        }
+        break;
+      }
+
+      case 'height': {
+        const candCm = candidate.heightCm.average ?? candidate.heightCm.median;
+        if (referenceStrain) {
+          const refCm =
+            referenceStrain.heightCm.average ?? referenceStrain.heightCm.median;
+          if (refCm - candCm >= 10) {
+            pushHighlight('More compact', 'positive');
+          } else if (candCm - refCm >= 10) {
+            pushHighlight('Taller plant', 'negative');
+          }
+        } else {
+          if (candCm <= 80) {
+            pushHighlight('Compact height', 'positive');
+          } else if (candCm >= 125) {
+            pushHighlight('Tall plant', 'negative');
+          }
+        }
+        break;
+      }
+
+      case 'autoflower': {
+        if (candidate.seedType === 'Autoflower') {
+          if (!referenceStrain || referenceStrain.seedType !== 'Autoflower') {
+            pushHighlight('Autoflower', 'positive');
+          }
+        } else {
+          pushHighlight('Photoperiod', 'negative');
+        }
+        break;
+      }
+
+      case 'low-odor': {
+        const candOdor = odorToNumeric(candidate);
+        if (referenceStrain) {
+          const refOdor = odorToNumeric(referenceStrain);
+          if (refOdor - candOdor >= 0.45) {
+            pushHighlight('Lower odor', 'positive');
+          } else if (candOdor - refOdor >= 0.45) {
+            pushHighlight('Stronger odor', 'negative');
+          }
+        } else {
+          if (candOdor <= 1.25) {
+            pushHighlight('Low odor', 'positive');
+          } else if (candOdor >= 2.3) {
+            pushHighlight('Strong odor', 'negative');
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return [...positives, ...negatives];
+}

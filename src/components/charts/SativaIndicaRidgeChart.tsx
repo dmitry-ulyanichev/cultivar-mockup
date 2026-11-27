@@ -350,6 +350,27 @@ export const SativaIndicaRidgeChart: React.FC<SativaIndicaRidgeChartProps> = ({
     hoverX !== null ? baseY - evalDensityNorm(hoverX) * peakH : null;
   const hoverColor = hoverX !== null ? sampleSpectrumColor(hoverX) : '#FFFFFF';
   const hoverShare = hoverX !== null ? getWindowSharePercent(hoverX) : 0;
+  const hoverBadgeLabel =
+    hoverX !== null
+      ? hoverX >= 48 && hoverX <= 52
+        ? '50/50'
+        : hoverX > 52
+          ? `${hoverX}% Indica`
+          : `${100 - hoverX}% Sativa`
+      : '';
+  const hoverBadgeW = Math.max(
+    compact ? 82 : 88,
+    hoverBadgeLabel.length * 7.2 + 18
+  );
+  const hoverBadgeX =
+    hoverSvgX !== null
+      ? Math.max(
+          padL,
+          Math.min(viewW - padR - hoverBadgeW, hoverSvgX - hoverBadgeW / 2)
+        )
+      : padL;
+  const hoverBadgeY =
+    hoverSvgY !== null ? Math.max(4, hoverSvgY - badgeH - 12) : 4;
 
   const isHovering = hoverX !== null;
   const fillGradId = `ridge-fill-${uid}`;
@@ -382,7 +403,7 @@ export const SativaIndicaRidgeChart: React.FC<SativaIndicaRidgeChartProps> = ({
               </span>
               <span className="text-xs text-[#B6BFC9]">
                 {hoverShare > 0
-                  ? `${hoverShare}% of consensus (±5%)`
+                  ? `${hoverShare}% of consensus`
                   : 'Rarely reported'}
               </span>
             </>
@@ -426,6 +447,7 @@ export const SativaIndicaRidgeChart: React.FC<SativaIndicaRidgeChartProps> = ({
           className="w-full h-auto overflow-visible touch-none cursor-crosshair"
           role="img"
           aria-label={`Sativa to Indica balance distribution for ${strain.name}: ${consensusIndica}% Indica, ${consensusSativa}% Sativa. Typical range ${formatTypicalSpan(stats.typicalLow, stats.typicalHigh)}.`}
+          onPointerDown={handlePointerMove}
           onPointerMove={handlePointerMove}
           onPointerLeave={() => setHoverX(null)}
         >
@@ -545,44 +567,48 @@ export const SativaIndicaRidgeChart: React.FC<SativaIndicaRidgeChartProps> = ({
               stroke="#0D0F12"
               strokeWidth={2}
             />
-            <rect
-              x={badgeX}
-              y={badgeY}
-              width={badgeW}
-              height={badgeH}
-              rx={5}
-              fill="#1C2230"
-              stroke="rgba(255, 255, 255, 0.28)"
-              strokeWidth={1}
-            />
-            <text
-              x={badgeX + badgeW / 2}
-              y={badgeY + 14.5}
-              textAnchor="middle"
-              fill="#F3F5F8"
-              fontSize={11}
-              fontWeight={600}
-              fontFamily="JetBrains Mono, ui-monospace, monospace"
-            >
-              {consensusIndica >= 48 && consensusIndica <= 52
-                ? '50/50'
-                : consensusIndica > 52
-                  ? `${consensusIndica}% Indica`
-                  : `${consensusSativa}% Sativa`}
-            </text>
+            {!isHovering && (
+              <>
+                <rect
+                  x={badgeX}
+                  y={badgeY}
+                  width={badgeW}
+                  height={badgeH}
+                  rx={5}
+                  fill="#1C2230"
+                  stroke="rgba(255, 255, 255, 0.28)"
+                  strokeWidth={1}
+                />
+                <text
+                  x={badgeX + badgeW / 2}
+                  y={badgeY + 14.5}
+                  textAnchor="middle"
+                  fill="#F3F5F8"
+                  fontSize={11}
+                  fontWeight={600}
+                  fontFamily="JetBrains Mono, ui-monospace, monospace"
+                >
+                  {consensusIndica >= 48 && consensusIndica <= 52
+                    ? '50/50'
+                    : consensusIndica > 52
+                      ? `${consensusIndica}% Indica`
+                      : `${consensusSativa}% Sativa`}
+                </text>
+              </>
+            )}
           </g>
 
-          {/* Interactive hover scrubber */}
+          {/* Interactive hover/tap scrubber with live percentage pill */}
           {isHovering && hoverSvgX !== null && hoverSvgY !== null && (
             <g className="pointer-events-none">
               <line
                 x1={hoverSvgX}
-                y1={padTop - 4}
+                y1={hoverSvgY}
                 x2={hoverSvgX}
                 y2={baseY + 4}
                 stroke={hoverColor}
-                strokeOpacity={0.65}
-                strokeWidth={1.5}
+                strokeOpacity={0.75}
+                strokeWidth={1.6}
                 strokeDasharray="3 3"
               />
               <circle
@@ -593,24 +619,37 @@ export const SativaIndicaRidgeChart: React.FC<SativaIndicaRidgeChartProps> = ({
                 stroke="#0D0F12"
                 strokeWidth={2}
               />
+              <rect
+                x={hoverBadgeX}
+                y={hoverBadgeY}
+                width={hoverBadgeW}
+                height={badgeH}
+                rx={5}
+                fill="#1C2230"
+                stroke={hoverColor}
+                strokeOpacity={0.65}
+                strokeWidth={1}
+              />
+              <text
+                x={hoverBadgeX + hoverBadgeW / 2}
+                y={hoverBadgeY + 14.5}
+                textAnchor="middle"
+                fill="#F3F5F8"
+                fontSize={11}
+                fontWeight={600}
+                fontFamily="JetBrains Mono, ui-monospace, monospace"
+              >
+                {hoverBadgeLabel}
+              </text>
             </g>
           )}
 
           {/* Horizontal spectrum ticks */}
-          {(compact
-            ? [
-                { pct: 0, label: '100% Sativa', color: SPECTRUM_SATIVA, anchor: 'start' as const, bold: true },
-                { pct: 50, label: 'Balanced', color: SPECTRUM_BALANCED, anchor: 'middle' as const, bold: true },
-                { pct: 100, label: '100% Indica', color: SPECTRUM_INDICA, anchor: 'end' as const, bold: true },
-              ]
-            : [
-                { pct: 0, label: '100% Sativa', color: SPECTRUM_SATIVA, anchor: 'start' as const, bold: true },
-                { pct: 25, label: '75% Sativa', color: '#858F9B', anchor: 'middle' as const, bold: false },
-                { pct: 50, label: '50 / 50 Balanced', color: SPECTRUM_BALANCED, anchor: 'middle' as const, bold: true },
-                { pct: 75, label: '75% Indica', color: '#858F9B', anchor: 'middle' as const, bold: false },
-                { pct: 100, label: '100% Indica', color: SPECTRUM_INDICA, anchor: 'end' as const, bold: true },
-              ]
-          ).map((tick) => (
+          {[
+            { pct: 0, label: 'Sativa', color: SPECTRUM_SATIVA, anchor: 'start' as const },
+            { pct: 50, label: 'Balanced', color: SPECTRUM_BALANCED, anchor: 'middle' as const },
+            { pct: 100, label: 'Indica', color: SPECTRUM_INDICA, anchor: 'end' as const },
+          ].map((tick) => (
             <text
               key={tick.pct}
               x={toSvgX(tick.pct)}
@@ -618,7 +657,7 @@ export const SativaIndicaRidgeChart: React.FC<SativaIndicaRidgeChartProps> = ({
               textAnchor={tick.anchor}
               fill={tick.color}
               fontSize={11}
-              fontWeight={tick.bold ? 600 : 500}
+              fontWeight={600}
               fontFamily="JetBrains Mono, ui-monospace, monospace"
             >
               {tick.label}
